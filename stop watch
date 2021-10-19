@@ -1,0 +1,162 @@
+try:
+    import tkinter as tk
+    from tkinter import simpledialog, messagebox
+except ImportError:
+    import Tkinter as tk
+    import tkSimpleDialog as simpledialog
+    import tkMessageBox as messagebox
+import os
+import time
+
+
+class stopwatch:
+    def __init__(self, master):
+
+        self.master = master
+        self.master.attributes("-topmost", 0)
+        self.master.title("Simple Stopwatch")
+        self._job = None
+
+        self.runningTime = tk.StringVar()
+
+        self.toggleString = tk.StringVar()
+
+        self.runningTime.set("00-00-00")
+        self.toggleString.set("Start")
+        self.isPaused = True
+        self.secondsPast = 0
+
+        master.geometry("305x80")
+        self.master.resizable(0, 0)
+        master.protocol("WM_DELETE_WINDOW", self.onclosing)
+        master.update()
+
+        self.timeLabel = tk.Label(
+            master, textvariable=self.runningTime, font=("Times New Roman", 20)
+        )
+        self.timeLabel.grid(row=0, column=1)
+        self.timeLabel.pack()
+
+        self.toggleButton = tk.Button(
+            master, textvariable=self.toggleString, command=self.toggle, relief="raised"
+        )
+        self.toggleButton.pack()
+
+        self.menubar = tk.Menu(master)
+        self.filemenu = tk.Menu(self.menubar, tearoff=0)
+        self.filemenu.add_command(label="Open History", command=self.viewhistory)
+        self.filemenu.add_command(label="Change Title", command=self.changetitle)
+        self.menubar.add_cascade(label="File", menu=self.filemenu)
+        self.master.config(menu=self.menubar)
+
+    def toggle(self):
+        with open("history.txt", "a") as historyTXT:
+            if self.toggleString.get() == "Start":
+                historyTXT.write(time.strftime("%Y:%m:%d\t%H:%M:%S") + "\tStarted\n")
+                self.start()
+            elif self.toggleString.get() == "Pause":
+                historyTXT.write(
+                    time.strftime("%Y:%m:%d\t%H:%M:%S")
+                    + "\tPaused at: "
+                    + self.runningTime.get()
+                    + "\n"
+                )
+                self.pause()
+            elif self.toggleString.get() == "Unpause":
+                historyTXT.write(
+                    time.strftime("%Y:%m:%d\t%H:%M:%S")
+                    + "\tUnpaused at: "
+                    + self.runningTime.get()
+                    + "\n"
+                )
+                self.unpause()
+
+    def increment(self):
+        if self.isPaused == False:
+            self.secondsPast += 1
+            self.runningTime.set(
+                time.strftime("%H:%M:%S", time.gmtime(self.secondsPast))
+            )
+        self._job = self.master.after(1000, self.increment)
+
+    def start(self):
+        self.toggleString.set("Pause")
+        self.toggleButton.configure(relief="raised")
+        self.isPaused = False
+        self.increment()
+
+    def pause(self):
+        self.toggleString.set("Unpause")
+        self.toggleButton.configure(relief="sunken")
+        self.isPaused = True
+
+    def unpause(self):
+        self.toggleString.set("Pause")
+        self.toggleButton.configure(relief="raised")
+        self.isPaused = False
+
+    def viewhistory(self):
+        self.historyWin = tk.Toplevel()
+        self.historyScroll = tk.Scrollbar(self.historyWin)
+        self.historyText = tk.Text(self.historyWin, height=50, width=100)
+
+        self.historyScroll.pack(side=tk.LEFT, fill=tk.Y)
+        self.historyText.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.historyScroll.config(command=self.historyText.yview)
+        self.historyText.config(yscrollcommand=self.historyScroll.set)
+
+        with open("history.txt", "r") as historyTXT:
+            self.historyText.insert(tk.END, historyTXT.read())
+
+    def changetitle(self):
+        if self._job is not None:
+            self.master.after_cancel(self._job)
+            self._job = None
+            with open("history.txt", "a") as historyTXT:
+                historyTXT.write("\tSTOPPED\t\n")
+        self.answer = simpledialog.askstring("Input", "Set Window Title")
+        with open("history.txt", "a") as historyTXT:
+            if self.answer is not None:
+                self.master.title(self.answer)
+                historyTXT.write(
+                    "\t"
+                    + self.answer
+                    + "\t"
+                    + time.strftime("%Y:%m:%d\t%H:%M:%S")
+                    + "\t\n"
+                )
+            else:
+                self.master.title("Simple Stopwatch")
+                historyTXT.write("\t" + time.strftime("%Y:%m:%d\t%H:%M:%S") + "\t\n")
+
+        self.runningTime.set("00-00-00")
+        self.toggleString.set("Start")
+        self.isPaused = True
+        self.secondsPast = 0
+
+    def onclosing(self):
+        if messagebox.askokcancel("Quit", "Do you want to quit?"):
+            with open("history.txt", "a") as historyTXT:
+                historyTXT.write("\tSTOPPED\t\n")
+            self.master.destroy()
+
+
+def main():
+    root = tk.Tk()
+    stopwatch_gui = stopwatch(root)
+    root.mainloop()
+
+
+if __name__ == "__main__":
+    home = os.path.expanduser("~")
+    folder = os.path.join(home, "stopwatch")
+    if not os.path.isdir(folder):
+        os.makedirs(folder)
+        os.chdir(folder)
+        if os.name != "nt":
+            os.mknod("history.txt")
+    else:
+        os.chdir(folder)
+    __version__ = "0.0.1"
+    main()
